@@ -1,0 +1,6 @@
+server_configuration:
+  port: "8000"
+  name: "edge_1"
+
+main_server_configuration:
+  addr: "http://localhost:9000"
