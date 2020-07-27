@@ -1,12 +1,16 @@
 package monitoring_service
 
 import (
-	"edgeServer/utils"
+	"bytes"
+	"edgeServer/configuration_service"
+	"edgeServer/function_handling"
+	"encoding/json"
 	"fmt"
-	linuxproc "github.com/c9s/goprocinfo/linux"
+	linuxProc "github.com/c9s/goprocinfo/linux"
 	"github.com/struCoder/pidusage"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -28,8 +32,8 @@ func GetStatsOfFunctionByPid(pid int) (ProcessStats, error) {
 	}, nil
 }
 
-func ReadCpuUsage() (*linuxproc.Stat, error) {
-	stat, err := linuxproc.ReadStat("/proc/stat")
+func ReadCpuUsage() (*linuxProc.Stat, error) {
+	stat, err := linuxProc.ReadStat("/proc/stat")
 	if err != nil {
 		log.Fatal("stat read fail")
 		return stat, err
@@ -37,7 +41,7 @@ func ReadCpuUsage() (*linuxproc.Stat, error) {
 	return stat, err
 }
 
-func SingleCoreStats(curr, prev linuxproc.CPUStat) float64 {
+func SingleCoreStats(curr, prev linuxProc.CPUStat) float64 {
 	prevIdle := prev.Idle + prev.IOWait
 	idle := curr.Idle + curr.IOWait
 	prevNonIdle := prev.User + prev.Nice + prev.System + prev.IRQ + prev.SoftIRQ + prev.Steal
@@ -51,7 +55,7 @@ func SingleCoreStats(curr, prev linuxproc.CPUStat) float64 {
 }
 
 func GetNumberOfCores() (int, error) {
-	info, err := linuxproc.ReadCPUInfo("/proc/cpuinfo")
+	info, err := linuxProc.ReadCPUInfo("/proc/cpuinfo")
 	if err != nil {
 		log.Fatal("info read fail")
 		return 0, err
@@ -64,7 +68,7 @@ func CalculateCpuUsage() (float64, error) {
 	if err != nil {
 		return 0.0, err
 	}
-	time.Sleep(time.Minute * time.Duration(5))
+	time.Sleep(time.Second * time.Duration(3))
 	currCpuStat, err := ReadCpuUsage()
 	if err != nil {
 		return 0.0, err
@@ -80,8 +84,8 @@ func CalculateCpuUsage() (float64, error) {
 	return usage / float64(cores), nil
 }
 
-func ReadMemoryInfo() (*linuxproc.MemInfo, error) {
-	info, err := linuxproc.ReadMemInfo("/proc/meminfo")
+func ReadMemoryInfo() (*linuxProc.MemInfo, error) {
+	info, err := linuxProc.ReadMemInfo("/proc/meminfo")
 	if err != nil {
 		log.Fatal("info read fail")
 		return info, err
@@ -123,17 +127,52 @@ func GetStatsFromContext() (TotalUsage, error) {
 	}, nil
 }
 
+type GeneralStats struct {
+	Memory string `json:"memory"`
+	Cpu string `json:"cpu"`
+	Functions map[string]ProcessStats `json:"functions"`
+}
+
 func MonitorContext() {
+	log.Println("Start monitoring!!!")
 	for {
+		totalStats := GeneralStats{}
+		functions := function_handling.GetAllFunctionsStored()
+		for fName, Pid := range functions {
+			nPid, err := strconv.Atoi(Pid)
+			if err != nil {
+				log.Printf("Not numeric pid from function %s %v", fName, err)
+				continue
+			}
+			fStats, err := GetStatsOfFunctionByPid(nPid)
+			if err != nil {
+				log.Printf("Could not get stats from function %s with pid %d %v", fName, nPid, err)
+				continue
+			}
+			if totalStats.Functions == nil {
+				totalStats.Functions = make(map[string]ProcessStats)
+			}
+			totalStats.Functions[fName] = fStats
+		}
 		stats, err := GetStatsFromContext()
 		if err != nil {
-			log.Fatal(err)
-			return
+			log.Printf("Could not get stats from system %v", err)
+			continue
 		}
-		strStats := fmt.Sprintf("cpu=%.2f&mem=%.2f", stats.CpuUsage, stats.MemoryUsage)
-		resp, err := http.Get(utils.GetMasterServer() + "/info/" + utils.GetName() + "?" + strStats)
-		if err != nil || resp.StatusCode > 200 {
-			return
+		totalStats.Memory = fmt.Sprintf("%.2f", stats.MemoryUsage)
+		totalStats.Cpu = fmt.Sprintf("%.2f", stats.CpuUsage)
+		client := http.Client{Timeout: 5 * time.Second}
+		jsonContent, _ := json.Marshal(totalStats)
+		resp, err := client.Post(configuration_service.GetMainServerAddr() + "/info/"+configuration_service.GetMyServerName(), "application/json", bytes.NewBuffer(jsonContent))
+		if resp != nil {
+			_ = resp.Body.Close()
+			if err != nil || resp.StatusCode > 200 {
+				log.Printf("Could not send stats to main server %v", err)
+			}
 		}
+		if err != nil {
+			log.Printf("Could not send stats to main server %v", err)
+		}
+
 	}
 }

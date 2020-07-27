@@ -1,0 +1,6 @@
+server_configuration:
+  port: "8080"
+  name: "cloud"
+
+main_server_configuration:
+  addr: "http://127.0.0.1:9000"

@@ -1,42 +1,48 @@
 package main
 
 import (
+	"edgeServer/configuration_service"
 	"edgeServer/execution_service"
 	"edgeServer/monitoring_service"
-	"edgeServer/utils"
-	"encoding/json"
-	"github.com/gorilla/mux"
+	"edgeServer/storage_service"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"log"
 	"net/http"
-	"os"
 )
 
-type ResponseExecuteFunction struct {
+func main() {
+	configuration_service.LoadConfiguration()
+	storage_service.InitializeStorageHandler(true)
+
+	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
+	e.GET("/execute/:fname", executeFunction)
+	e.GET("/stop", stopFunction)
+	log.Println("new!")
+	go monitoring_service.MonitorContext()
+
+	e.Logger.Fatal(e.Start(":" + configuration_service.GetMyServerPort()))
+}
+
+type ResponseExecution struct {
 	Result string `json:"result"`
 }
 
-func executeFunction(w http.ResponseWriter, r *http.Request){
-	params := mux.Vars(r)
-	functionName := params["f-name"]
-	parameter := r.URL.Query().Get("param")
-	response := ResponseExecuteFunction{Result: execution_service.ExecuteFunction(functionName, parameter)}
-	json.NewEncoder(w).Encode(&response)
+func executeFunction(c echo.Context) error {
+	log.Printf("Execute %s with parameter %s", c.Param("fname"), c.QueryParam("param"))
+	ans := execution_service.ExecuteAndDetachFunctionWasmer(c.Param("fname"), c.QueryParam("param"))
+	log.Printf("Finished %s sending results", c.Param("fname"))
+	response := ResponseExecution{Result: ans}
+	return c.JSON(http.StatusOK, response)
 }
 
-func stopAnyFunction(w http.ResponseWriter, r *http.Request){
-	log.Println("stopping some function!")
-}
-
-func main() {
-	utils.MyName = os.Args[1]
-	port := os.Args[2]
-	go monitoring_service.MonitorContext()
-	router := mux.NewRouter()
-	router.HandleFunc("/execute/{f-name}", executeFunction).Methods("GET")
-	router.HandleFunc("/stop", stopAnyFunction).Methods("GET")
-	log.Println(port)
-	err := http.ListenAndServe(":" + port, router)
-	if err != nil {
-		log.Fatal(err)
-	}
+func stopFunction(c echo.Context) error {
+	fName := c.QueryParam("name")
+	pid := c.QueryParam("pid")
+	log.Printf("Stopping function %s with pid %s", fName, pid)
+	execution_service.StopFunction(fName, pid)
+	return c.String(http.StatusOK, "")
 }
