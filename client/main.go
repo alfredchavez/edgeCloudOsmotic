@@ -2,7 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/rs/xid"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,21 +31,58 @@ type Result struct {
 	Result string `json:"result"`
 }
 
-func main() {
-	mainServer := "http://127.0.0.1:9000"
-	for i:=0; i< 1; i++{
-		ans1 := new(FromMain)
-		getJson(mainServer + "/query_execute", &ans1)
-		println("Request: ", ans1.Url)
-		ans2 := new(Result)
-		err := getJson(ans1.Url+"/execute/untitled?param=1000000000", &ans2)
+func generateRandomId() string {
+	return xid.New().String()
+}
+
+func performRequestsUntilGetTheResult(url string, parameter int) {
+	defer wg.Done()
+	results := new(Result)
+	fName := "untitled-"+ generateRandomId()
+	param := strconv.Itoa(parameter)
+	myUrl := url
+	start := time.Now()
+	for {
+		err := getJson(myUrl + "/execute/" + fName + "?param=" + param, &results)
 		if err != nil {
-			println(err.Error())
+			log.Println("Problem getting function "+err.Error())
+			elapsed := time.Since(start)
+			sumTo(elapsed.Seconds())
+			return
 		}
-		if ans2.Result == "h" {
-		        println(ans2.Result)
-			getJson(ans2.Result+"/execute/untitled?param=1000000", &ans2)
+		if strings.HasPrefix(results.Result, "http") {
+			myUrl = results.Result
+		} else {
+			elapsed := time.Since(start)
+			sumTo(elapsed.Seconds())
+			return
 		}
-		println("second time " + ans2.Result)
 	}
+}
+
+var totalSum float64
+var lock sync.Mutex
+var wg sync.WaitGroup
+var messages chan string
+
+
+func sumTo(val float64) {
+	lock.Lock()
+	defer lock.Unlock()
+	totalSum += val
+}
+
+func main() {
+	totalSum = 0.0
+	mainServer := "http://127.0.0.1:9000"
+	messages = make(chan string)
+	wg.Add(10)
+	for i:=0; i< 10; i++{
+		firstUrl := new(FromMain)
+		getJson(mainServer + "/query_execute", &firstUrl)
+		go performRequestsUntilGetTheResult(firstUrl.Url, 20000000)
+		//log.Printf("Value %.4f ans %s", dur.Seconds(), ans)
+	}
+	wg.Wait()
+	log.Printf("total time %.4f", totalSum)
 }

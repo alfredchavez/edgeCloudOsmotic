@@ -4,3 +4,6 @@ server_configuration:
 
 main_server_configuration:
   addr: "http://127.0.0.1:9000"
+
+cloud_server_configuration:
+  addr: "http://127.0.0.1:8080"

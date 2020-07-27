@@ -8,6 +8,7 @@ import (
 	"mainServer/utils"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -48,9 +49,10 @@ func getServersStatsInfo(c echo.Context) error {
 	storage_service.SetValue(serverName+"_cpu", stats.Cpu)
 	floatMemory,_ := strconv.ParseFloat(stats.Memory, 64)
 	floatCpu, _ := strconv.ParseFloat(stats.Cpu, 64)
-	if floatMemory > utils.GetThreshold() || floatCpu > utils.GetThreshold(){
+	if floatMemory > 0.95 || floatCpu > utils.GetThreshold(){
 		addrServer := utils.GetEdgeServers()[serverName]
 		// stop and migrate most expensive function
+		log.Println("migrate")
 		var fPid int
 		fName := "null"
 		most := -1.0
@@ -66,6 +68,12 @@ func getServersStatsInfo(c echo.Context) error {
 		}
 		sPid := strconv.Itoa(fPid)
 		_, _ = http.Get(addrServer + "/stop?" + "name=" + fName + "&pid=" + sPid)
+		return nil
+	}
+	if floatMemory < 0.4 && floatCpu < 0.4 && strings.HasPrefix(serverName, "edge") {
+		//stop and migrate to edge
+		_, _ = http.Get(utils.GetCloudServer() + "/stop?"+"name="+utils.GetCloudServer())
+		return nil
 	}
 	return nil
 }
@@ -80,7 +88,6 @@ func callFunction(c echo.Context) error {
 	for k := range utils.GetEdgeServers(){
 		cpu := storage_service.GetValue(k + "_cpu")
 		mem := storage_service.GetValue(k + "_mem")
-		log.Println("cpu "+ cpu + " mem " + mem)
 		if mem == "" || cpu == "" {
 			continue
 		}

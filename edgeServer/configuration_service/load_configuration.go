@@ -12,6 +12,7 @@ var loadOnceConfig sync.Once
 var mainServerAddr string
 var externalServerName string
 var internalPort string
+var cloudServerAddr string
 
 type Configuration struct {
 	ServerConfiguration struct{
@@ -21,11 +22,15 @@ type Configuration struct {
 	MainServerConfiguration struct {
 		Address string `yaml:"addr"`
 	} `yaml:"main_server_configuration"`
+	CloudServerConfiguration struct {
+		Address string `yaml:"addr"`
+	} `json:"cloud_server_configuration"`
 }
 
 func LoadConfiguration(){
 	loadOnceConfig.Do(func() {
 		mainServerAddr = "http://localhost:9000"
+		cloudServerAddr = "http://localhost:8080"
 		externalServerName = "edge_1"
 		internalPort = "8000"
 
@@ -43,6 +48,7 @@ func LoadConfiguration(){
 		mainServerAddr = config.MainServerConfiguration.Address
 		externalServerName = config.ServerConfiguration.Name
 		internalPort = config.ServerConfiguration.Port
+		cloudServerAddr = config.CloudServerConfiguration.Address
 	})
 }
 
@@ -56,4 +62,8 @@ func GetMyServerName() string {
 
 func GetMyServerPort() string {
 	return internalPort
+}
+
+func GetCloudServerAddr() string {
+	return cloudServerAddr
 }

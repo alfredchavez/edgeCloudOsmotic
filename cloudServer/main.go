@@ -8,7 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"log"
+	"math/rand"
 	"net/http"
+	"strings"
+	"time"
 )
 
 func main() {
@@ -31,18 +34,43 @@ type ResponseExecution struct {
 	Result string `json:"result"`
 }
 
+func simulateDelay(){
+	time.Sleep(time.Duration(rand.Intn(100-70) + 70) * time.Millisecond)
+}
+
 func executeFunction(c echo.Context) error {
+	simulateDelay()
 	log.Printf("Execute %s with parameter %s", c.Param("fname"), c.QueryParam("param"))
 	ans := execution_service.ExecuteAndDetachFunctionWasmer(c.Param("fname"), c.QueryParam("param"))
 	log.Printf("Finished %s sending results", c.Param("fname"))
+	if strings.TrimSpace(ans) == "" {
+		ans = storage_service.GetValue(c.Param("fname")+"_out")
+	}
 	response := ResponseExecution{Result: ans}
 	return c.JSON(http.StatusOK, response)
 }
 
 func stopFunction(c echo.Context) error {
-	fName := c.QueryParam("name")
-	pid := c.QueryParam("pid")
+	migrationUri := c.QueryParam("name")
+	functions := storage_service.GetAllKeysAndValues()
+	keys := make([]string, 0)
+	for k, _ := range functions {
+		keys = append(keys, k)
+	}
+	ans := ""
+	for _, k := range keys {
+		noPost := strings.Split(k, "_")[0]
+		if _, ok := functions[noPost + "_out"]; !ok {
+			ans = noPost
+		}
+	}
+	if ans == "" {
+		return c.String(http.StatusOK, "")
+	}
+	fName := ans
+	pid := functions[fName]
 	log.Printf("Stopping function %s with pid %s", fName, pid)
+	storage_service.SetValue(fName+"_out", migrationUri)
 	execution_service.StopFunction(fName, pid)
 	return c.String(http.StatusOK, "")
 }

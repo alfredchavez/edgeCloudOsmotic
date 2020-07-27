@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func main() {
@@ -35,6 +36,9 @@ func executeFunction(c echo.Context) error {
 	log.Printf("Execute %s with parameter %s", c.Param("fname"), c.QueryParam("param"))
 	ans := execution_service.ExecuteAndDetachFunctionWasmer(c.Param("fname"), c.QueryParam("param"))
 	log.Printf("Finished %s sending results", c.Param("fname"))
+	if strings.TrimSpace(ans) == ""{
+		ans = configuration_service.GetCloudServerAddr()
+	}
 	response := ResponseExecution{Result: ans}
 	return c.JSON(http.StatusOK, response)
 }
