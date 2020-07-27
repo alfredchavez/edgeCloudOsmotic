@@ -6,7 +6,7 @@ func GetRedisServer() string {
 
 func GetEdgeServers() map[string]string {
 	return map[string]string{
-		"1": "http://127.0.0.1:8000",
+		"edge_1": "http://127.0.0.1:8000",
 	}
 }
 

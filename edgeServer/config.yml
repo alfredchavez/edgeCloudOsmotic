@@ -3,4 +3,4 @@ server_configuration:
   name: "edge_1"
 
 main_server_configuration:
-  addr: "http://localhost:9000"
+  addr: "http://127.0.0.1:9000"

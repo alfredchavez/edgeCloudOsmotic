@@ -28,16 +28,19 @@ type Result struct {
 
 func main() {
 	mainServer := "http://127.0.0.1:9000"
-	for i:=0; i< 100; i++{
+	for i:=0; i< 1; i++{
 		ans1 := new(FromMain)
-		getJson(mainServer + "/execute", &ans1)
-		println(ans1.Url)
+		getJson(mainServer + "/query_execute", &ans1)
+		println("Request: ", ans1.Url)
 		ans2 := new(Result)
-		getJson(ans1.Url+"/execute/untitled?param=10000", &ans2)
-		println(ans2.Result)
-		if string(ans2.Result[0]) == "h" {
-			getJson(ans2.Result+"/execute/untitled?param=10000", &ans2)
+		err := getJson(ans1.Url+"/execute/untitled?param=1000000000", &ans2)
+		if err != nil {
+			println(err.Error())
 		}
-		println(ans2.Result)
+		if ans2.Result == "h" {
+		        println(ans2.Result)
+			getJson(ans2.Result+"/execute/untitled?param=1000000", &ans2)
+		}
+		println("second time " + ans2.Result)
 	}
 }

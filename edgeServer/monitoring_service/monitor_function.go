@@ -68,7 +68,7 @@ func CalculateCpuUsage() (float64, error) {
 	if err != nil {
 		return 0.0, err
 	}
-	time.Sleep(time.Minute * time.Duration(3))
+	time.Sleep(time.Second * time.Duration(3))
 	currCpuStat, err := ReadCpuUsage()
 	if err != nil {
 		return 0.0, err
@@ -134,6 +134,7 @@ type GeneralStats struct {
 }
 
 func MonitorContext() {
+	log.Println("Start monitoring!!!")
 	for {
 		totalStats := GeneralStats{}
 		functions := function_handling.GetAllFunctionsStored()
@@ -148,6 +149,9 @@ func MonitorContext() {
 				log.Printf("Could not get stats from function %s with pid %d %v", fName, nPid, err)
 				continue
 			}
+			if totalStats.Functions == nil {
+				totalStats.Functions = make(map[string]ProcessStats)
+			}
 			totalStats.Functions[fName] = fStats
 		}
 		stats, err := GetStatsFromContext()
@@ -160,9 +164,15 @@ func MonitorContext() {
 		client := http.Client{Timeout: 5 * time.Second}
 		jsonContent, _ := json.Marshal(totalStats)
 		resp, err := client.Post(configuration_service.GetMainServerAddr() + "/info/"+configuration_service.GetMyServerName(), "application/json", bytes.NewBuffer(jsonContent))
-		_ = resp.Body.Close()
-		if err != nil || resp.StatusCode > 200 {
+		if resp != nil {
+			_ = resp.Body.Close()
+			if err != nil || resp.StatusCode > 200 {
+				log.Printf("Could not send stats to main server %v", err)
+			}
+		}
+		if err != nil {
 			log.Printf("Could not send stats to main server %v", err)
 		}
+
 	}
 }
