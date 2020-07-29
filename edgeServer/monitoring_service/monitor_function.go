@@ -1,16 +1,12 @@
 package monitoring_service
 
 import (
-	"bytes"
-	"edgeServer/configuration_service"
 	"edgeServer/function_handling"
-	"encoding/json"
 	"fmt"
 	linuxProc "github.com/c9s/goprocinfo/linux"
 	"github.com/struCoder/pidusage"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -167,18 +163,6 @@ func MonitorContext() {
 		totalStats.Memory = fmt.Sprintf("%.2f", stats.MemoryUsage)
 		totalStats.Cpu = fmt.Sprintf("%.2f", stats.CpuUsage)
 		logger.Printf("#%s,%s", totalStats.Cpu, totalStats.Memory)
-		client := http.Client{Timeout: 5 * time.Second}
-		jsonContent, _ := json.Marshal(totalStats)
-		resp, err := client.Post(configuration_service.GetMainServerAddr()+"/info/"+configuration_service.GetMyServerName(), "application/json", bytes.NewBuffer(jsonContent))
-		if resp != nil {
-			_ = resp.Body.Close()
-			if err != nil || resp.StatusCode > 200 {
-				log.Printf("Could not send stats to main server %v", err)
-			}
-		}
-		if err != nil {
-			log.Printf("Could not send stats to main server %v", err)
-		}
 
 	}
 }

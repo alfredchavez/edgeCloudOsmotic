@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func ExecuteAndDetachFunctionWasmer(functionName string, parameter string) string {
@@ -24,23 +23,10 @@ func ExecuteAndDetachFunctionWasmer(functionName string, parameter string) strin
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	_ = cmd.Start()
-	done := make(chan error)
 	storage_service.SetValue(functionName, strconv.Itoa(cmd.Process.Pid))
-	go func() {done <- cmd.Wait()}()
-	//go func() {StopFunction(functionName, strconv.Itoa(cmd.Process.Pid)) }()
-	timeoutDuration := function_handling.GetTimeout(functionName, parameter)
-	timeout := time.After(time.Duration(timeoutDuration) * time.Second)
-	select {
-	case <-timeout:
-		// Timeout happened first, kill the process and print a message.
-		StopFunction(functionName, strconv.Itoa(cmd.Process.Pid) )
-		log.Printf("timeout %d", timeoutDuration)
-		return ""
-	case _ = <-done:
-		// Command completed before timeout. Print output and error if it exists.
-		storage_service.DeleteKey(functionName)
-		return outb.String() + " " + errb.String()
-	}
+	cmd.Wait()
+	storage_service.DeleteKey(functionName)
+	return outb.String() + " " + errb.String()
 }
 
 func StopFunction(functionName string, pid string) {
@@ -72,24 +58,12 @@ func ExecuteAndDetachFunctionDocker(functionName string, parameter string) strin
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	_ = cmd.Start()
-	done := make(chan error)
 	storage_service.SetValue(functionName, strconv.Itoa(cmd.Process.Pid))
-	go func() { done <- cmd.Wait() }()
-	//go func() {StopFunction(functionName, strconv.Itoa(cmd.Process.Pid)) }()
-	timeoutDuration := function_handling.GetTimeoutDocker(functionName, parameter)
-	timeout := time.After(time.Duration(timeoutDuration) * time.Second)
-	select {
-	case <-timeout:
-		// Timeout happened first, kill the process and print a message.
-		log.Printf("timeout %d", timeoutDuration)
-		StopFunctionDocker(functionName, "")
-		return ""
-	case _ = <-done:
-		// Command completed before timeout. Print output and error if it exists.
-		log.Println("ended! stopping " + functionName)
-		StopFunctionDocker(functionName, "")
-		return outb.String() + " " + errb.String()
-	}
+	cmd.Wait()
+
+	log.Println("ended! stopping " + functionName)
+	StopFunctionDocker(functionName, "")
+	return outb.String() + " " + errb.String()
 }
 
 func StopFunctionDocker(functionName string, _ string) {
