@@ -41,9 +41,6 @@ func ExecuteAndDetachFunctionWasmer(functionName string, parameter string) strin
 		storage_service.DeleteKey(functionName)
 		return outb.String() + " " + errb.String()
 	}
-
-
-
 }
 
 func StopFunction(functionName string, pid string) {
@@ -61,4 +58,46 @@ func StopFunction(functionName string, pid string) {
 		return
 	}
 	log.Printf("Could not find process %s with pid %s", functionName, pid)
+}
+
+func ExecuteAndDetachFunctionDocker(functionName string, parameter string) string {
+	cmd := exec.Command("")
+	fNameExecutable := strings.Split(functionName, "-")[0]
+	if len(parameter) > 0 {
+		cmd = exec.Command("docker", "run", "--name", functionName, "-a", "stdout", fNameExecutable, parameter)
+	} else {
+		cmd = exec.Command("docker", "run", "--name", functionName, "-a", "stdout", fNameExecutable)
+	}
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	_ = cmd.Start()
+	done := make(chan error)
+	storage_service.SetValue(functionName, strconv.Itoa(cmd.Process.Pid))
+	go func() { done <- cmd.Wait() }()
+	//go func() {StopFunction(functionName, strconv.Itoa(cmd.Process.Pid)) }()
+	timeoutDuration := function_handling.GetTimeoutDocker(functionName, parameter)
+	timeout := time.After(time.Duration(timeoutDuration) * time.Second)
+	select {
+	case <-timeout:
+		// Timeout happened first, kill the process and print a message.
+		log.Printf("timeout %d", timeoutDuration)
+		StopFunctionDocker(functionName, "")
+		return ""
+	case _ = <-done:
+		// Command completed before timeout. Print output and error if it exists.
+		log.Println("ended! stopping " + functionName)
+		StopFunctionDocker(functionName, "")
+		return outb.String() + " " + errb.String()
+	}
+}
+
+func StopFunctionDocker(functionName string, _ string) {
+	cmd := exec.Command("docker", "stop", functionName)
+	_ = cmd.Start()
+	_ = cmd.Wait()
+	cmd = exec.Command("docker", "rm", functionName)
+	_ = cmd.Start()
+	_ = cmd.Wait()
+	storage_service.DeleteKey(functionName)
 }

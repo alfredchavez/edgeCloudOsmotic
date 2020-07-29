@@ -49,7 +49,7 @@ func getServersStatsInfo(c echo.Context) error {
 	storage_service.SetValue(serverName+"_cpu", stats.Cpu)
 	floatMemory,_ := strconv.ParseFloat(stats.Memory, 64)
 	floatCpu, _ := strconv.ParseFloat(stats.Cpu, 64)
-	if floatMemory > 0.95 || floatCpu > utils.GetThreshold(){
+	if floatMemory > utils.GetThreshold(){
 		addrServer := utils.GetEdgeServers()[serverName]
 		// stop and migrate most expensive function
 		log.Println("migrate")

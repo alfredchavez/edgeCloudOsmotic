@@ -12,8 +12,10 @@ var loadOnceConfig sync.Once
 var mainServerAddr string
 var externalServerName string
 var internalPort string
+var runtime string
 
 type Configuration struct {
+	Runtime string `yaml:"runtime"`
 	ServerConfiguration struct{
 		Port string `yaml:"port"`
 		Name string `yaml:"name"`
@@ -28,6 +30,7 @@ func LoadConfiguration(){
 		mainServerAddr = "http://localhost:9000"
 		externalServerName = "edge_1"
 		internalPort = "8000"
+		runtime = "wasmer"
 
 		yamlFile, err := ioutil.ReadFile("config.yml")
 		if err != nil {
@@ -43,6 +46,7 @@ func LoadConfiguration(){
 		mainServerAddr = config.MainServerConfiguration.Address
 		externalServerName = config.ServerConfiguration.Name
 		internalPort = config.ServerConfiguration.Port
+		runtime = config.Runtime
 	})
 }
 
@@ -57,3 +61,8 @@ func GetMyServerName() string {
 func GetMyServerPort() string {
 	return internalPort
 }
+
+func GetRuntime() string {
+	return runtime
+}
+

@@ -8,8 +8,10 @@ import (
 	"fmt"
 	linuxProc "github.com/c9s/goprocinfo/linux"
 	"github.com/struCoder/pidusage"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -68,7 +70,7 @@ func CalculateCpuUsage() (float64, error) {
 	if err != nil {
 		return 0.0, err
 	}
-	time.Sleep(time.Second * time.Duration(3))
+	time.Sleep(time.Second * time.Duration(1))
 	currCpuStat, err := ReadCpuUsage()
 	if err != nil {
 		return 0.0, err
@@ -128,12 +130,15 @@ func GetStatsFromContext() (TotalUsage, error) {
 }
 
 type GeneralStats struct {
-	Memory string `json:"memory"`
-	Cpu string `json:"cpu"`
+	Memory    string                  `json:"memory"`
+	Cpu       string                  `json:"cpu"`
 	Functions map[string]ProcessStats `json:"functions"`
 }
 
 func MonitorContext() {
+	f1, _ := os.Create("./stats.log")
+	w := io.MultiWriter(f1)
+	logger := log.New(w, "logger", log.LstdFlags)
 	log.Println("Start monitoring!!!")
 	for {
 		totalStats := GeneralStats{}
@@ -161,9 +166,10 @@ func MonitorContext() {
 		}
 		totalStats.Memory = fmt.Sprintf("%.2f", stats.MemoryUsage)
 		totalStats.Cpu = fmt.Sprintf("%.2f", stats.CpuUsage)
+		logger.Printf("#%s,%s", totalStats.Cpu, totalStats.Memory)
 		client := http.Client{Timeout: 5 * time.Second}
 		jsonContent, _ := json.Marshal(totalStats)
-		resp, err := client.Post(configuration_service.GetMainServerAddr() + "/info/"+configuration_service.GetMyServerName(), "application/json", bytes.NewBuffer(jsonContent))
+		resp, err := client.Post(configuration_service.GetMainServerAddr()+"/info/"+configuration_service.GetMyServerName(), "application/json", bytes.NewBuffer(jsonContent))
 		if resp != nil {
 			_ = resp.Body.Close()
 			if err != nil || resp.StatusCode > 200 {

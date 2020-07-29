@@ -17,7 +17,6 @@ func main() {
 	storage_service.InitializeStorageHandler(true)
 
 	e := echo.New()
-	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	e.GET("/execute/:fname", executeFunction)
@@ -34,7 +33,12 @@ type ResponseExecution struct {
 
 func executeFunction(c echo.Context) error {
 	log.Printf("Execute %s with parameter %s", c.Param("fname"), c.QueryParam("param"))
-	ans := execution_service.ExecuteAndDetachFunctionWasmer(c.Param("fname"), c.QueryParam("param"))
+	ans := ""
+	if configuration_service.GetRuntime() == "wasmer" {
+		ans = execution_service.ExecuteAndDetachFunctionWasmer(c.Param("fname"), c.QueryParam("param"))
+	} else if configuration_service.GetRuntime() == "docker"  {
+		ans = execution_service.ExecuteAndDetachFunctionDocker(c.Param("fname"), c.QueryParam("param"))
+	}
 	log.Printf("Finished %s sending results", c.Param("fname"))
 	if strings.TrimSpace(ans) == ""{
 		ans = configuration_service.GetCloudServerAddr()
@@ -47,6 +51,11 @@ func stopFunction(c echo.Context) error {
 	fName := c.QueryParam("name")
 	pid := c.QueryParam("pid")
 	log.Printf("Stopping function %s with pid %s", fName, pid)
-	execution_service.StopFunction(fName, pid)
+	if configuration_service.GetRuntime() == "wasmer" {
+		execution_service.StopFunction(fName, pid)
+	} else if configuration_service.GetRuntime() == "docker"  {
+		execution_service.StopFunctionDocker(fName, "")
+	}
+
 	return c.String(http.StatusOK, "")
 }

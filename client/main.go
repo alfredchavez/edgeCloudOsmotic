@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var myClient = &http.Client{Timeout: 60 * time.Second}
+var myClient = &http.Client{Timeout: 120 * time.Second}
 
 func getJson(url string, target interface{}) error {
 	r, err := myClient.Get(url)
@@ -38,7 +38,7 @@ func generateRandomId() string {
 func performRequestsUntilGetTheResult(url string, parameter int) {
 	defer wg.Done()
 	results := new(Result)
-	fName := "untitled-"+ generateRandomId()
+	fName := "sieve-"+ generateRandomId()
 	param := strconv.Itoa(parameter)
 	myUrl := url
 	start := time.Now()
