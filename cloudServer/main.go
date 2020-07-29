@@ -3,7 +3,6 @@ package main
 import (
 	"edgeServer/configuration_service"
 	"edgeServer/execution_service"
-	"edgeServer/monitoring_service"
 	"edgeServer/storage_service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -24,7 +23,6 @@ func main() {
 	e.GET("/execute/:fname", executeFunction)
 	e.GET("/stop", stopFunction)
 	log.Println("new!")
-	go monitoring_service.MonitorContext()
 
 	e.Logger.Fatal(e.Start(":" + configuration_service.GetMyServerPort()))
 }
@@ -34,7 +32,7 @@ type ResponseExecution struct {
 }
 
 func simulateDelay(){
-	time.Sleep(time.Duration(rand.Intn(100-70) + 70) * time.Millisecond)
+	time.Sleep(time.Duration(rand.Intn(2-1) + 1) * time.Second)
 }
 
 func executeFunction(c echo.Context) error {

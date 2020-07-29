@@ -1,3 +1,0 @@
-redis_addr: "http://127.0.0.1:6379"
-password: ""
-DB: 1

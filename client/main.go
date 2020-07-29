@@ -74,12 +74,10 @@ func sumTo(val float64) {
 
 func main() {
 	totalSum = 0.0
-	mainServer := "http://127.0.0.1:9000"
 	messages = make(chan string)
 	wg.Add(10)
+	firstUrl := FromMain{Url: "http://localhost:8080"}
 	for i:=0; i< 10; i++{
-		firstUrl := new(FromMain)
-		getJson(mainServer + "/query_execute", &firstUrl)
 		go performRequestsUntilGetTheResult(firstUrl.Url, 20000000)
 		//log.Printf("Value %.4f ans %s", dur.Seconds(), ans)
 	}

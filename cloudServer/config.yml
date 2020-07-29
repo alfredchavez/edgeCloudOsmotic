@@ -1,4 +1,4 @@
-runtime: "docker"
+runtime: "wasmer"
 
 server_configuration:
   port: "8080"
